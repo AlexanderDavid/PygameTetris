@@ -94,14 +94,13 @@ class Tetramino:
 
     def update(self):
         for shape in self.shape:
-            return False
-
-        self.shape = [[x[0], x[1] + 1] for x in self.shape]
-        return True
+            if self.tetris.is_occupied_position(shape[0], shape[1] + 1):
+                return True
+        return False
 
     def move(self, x=0, y=0):
         for shape in self.shape:
-            if not self.tetris.is_valid_position(shape[0] + x, shape[1] + y):
+            if self.tetris.is_occupied_position(shape[0] + x, shape[1] + y):
                 return False
 
         self.shape = [[rect[0] + x, rect[1] + y] for rect in self.shape]
@@ -126,6 +125,18 @@ class Tetris:
         self.current_tetramino = None
         self.tetraminos = [Tetramino(Tetramino.LINE, screen, self)]
         self.curr_tetramino = self.tetraminos[-1]
+
+    def is_occupied_position(self, x, y):
+        if not self.is_valid_position(x, y):
+            return True
+
+        for tetramino in self.tetraminos:
+            if not (tetramino is self.curr_tetramino):
+                for shape in tetramino.shape:
+                    if (shape[0] == x and shape[1] == y):
+                        return True
+
+        return False
 
     def is_valid_position(self, x, y):
         """Check if a position is either at the
@@ -164,6 +175,11 @@ class Tetris:
         """Update the current tetraminos position and check if there
         is a filled line that needs to go away
         """
+        if self.curr_tetramino.update():
+            self.tetraminos.append(
+                Tetramino(Tetramino.LINE, self.screen, self))
+            self.curr_tetramino = self.tetraminos[-1]
+
         self.curr_tetramino.move(y=1)
 
     def key_down(self, key):
