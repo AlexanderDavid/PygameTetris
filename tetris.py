@@ -31,10 +31,10 @@ class Tetramino:
         "J": ([[1, -1], [1, -2], [1, -3], [0, -1]],
               pygame.transform.scale(
                   pygame.image.load("assets/tetris_orange.png"), (80, 80))),
-        "S": ([[0, -1], [1, -1], [1, -2], [-2, -2]],
+        "S": ([[0, -1], [1, -1], [1, -2], [2, -2]],
               pygame.transform.scale(
                   pygame.image.load("assets/tetris_green.png"), (80, 80))),
-        "Z": ([[0, -2], [1, -2], [1, -1], [-2, -1]],
+        "Z": ([[0, -2], [1, -2], [1, -1], [2, -1]],
               pygame.transform.scale(
                   pygame.image.load("assets/tetris_red.png"), (80, 80))),
         "BLOCK": ([[0, -1], [0, -2], [-1, -1], [-1, -2]],
@@ -239,6 +239,10 @@ class Tetris:
         # Pressing the up key should rotate the tetramino
         elif key == pygame.K_UP:
             self.curr_tetramino.rotate()
+
+        elif key == pygame.K_SPACE:
+            while self.curr_tetramino.move(y=1):
+                pass
 
         # Call the debug function on the current falling tetramino
         # If the d button is pressed
