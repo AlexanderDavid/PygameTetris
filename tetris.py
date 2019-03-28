@@ -4,10 +4,7 @@ from random import randrange  # For a little randomness in the tetrominos
 import sys  # For exiting the program
 
 
-class TetraminoShape:
-    """Encapsulate a shape of tetramino, this includes the rotating and initial
-    randomization
-    """
+class Tetramino:
 
     # Static variables for the tetramino type
     LINE = "LINE"
@@ -23,18 +20,21 @@ class TetraminoShape:
         "BLOCK": ([[0, -1], [0, -2], [-1, -1], [-1, -2], (255, 255, 0)])
     }
 
-    def __init__(self, shape, tetris):
-        """Construct a TetraminoShape object
+    def __init__(self, shape, screen, tetris):
+        """Construct a Tetamino at a random position above the view of the
+         board
 
         Args:
-            shape (str): The shape (chosen from the static shapes)
-            tetris (Tetris): Reference to the Tetris objecct
+            shape (Tuple[List[List[int, int]], Tuple[int, int, int]]):
+                The shape and color of the tetramino
+            screen (pygame.Screen): Screen to draw on
         """
-
-        # Initialize variables
+        self.tetris = tetris
+        self.screen = screen
         self.shape_keyword = shape
-        self.shape = TetraminoShape.SHAPES[shape][0]
-        self.color = TetraminoShape.SHAPES[shape][1]
+        self.shape = self.SHAPES[shape][0]
+        self.color = self.SHAPES[shape][1]
+        self.randomize_horizontal_position()
         self.tetris = tetris
         self.rotated = 1
 
@@ -46,7 +46,7 @@ class TetraminoShape:
         # One case for each shape in each rotated position
 
         # LINE IN UPRIGHT POSITION
-        if (self.shape_keyword == TetraminoShape.LINE
+        if (self.shape_keyword == self.LINE
                 and self.rotated % 2 == 1 and tetris.valid_position(
                     self.shape[0][0] - 2, self.shape[0][1] - 2)
                 and tetris.valid_position(self.shape[1][0] - 1,
@@ -61,7 +61,7 @@ class TetraminoShape:
             self.rotated += 1
 
         # LINE IN HORIZONTAL POSITION
-        elif (self.shape_keyword == TetraminoShape.LINE
+        elif (self.shape_keyword == self.LINE
               and self.rotated % 2 == 0 and tetris.valid_position(
                   self.shape[0][0] + 2, self.shape[0][1] + 2) and
               tetris.valid_position(self.shape[0][0] + 1, self.shape[0][1] + 1)
@@ -81,24 +81,8 @@ class TetraminoShape:
     def get_tetromino_width(self):
         return (lambda arr: max(arr) - min(arr))([x[0] for x in self.shape])
 
-
-class Tetramino:
-    def __init__(self, shape, screen, tetris):
-        """Construct a Tetamino at a random position above the view of the
-         board
-
-        Args:
-            shape (Tuple[List[List[int, int]], Tuple[int, int, int]]):
-                The shape and color of the tetramino
-            screen (pygame.Screen): Screen to draw on
-        """
-        self.tetris = tetris
-        self.shape = TetraminoShape(shape, tetris)
-        self.shape.randomize_horizontal_position()
-        self.screen = screen
-
     def draw(self):
-        for i, square in enumerate(self.shape.shape):
+        for i, square in enumerate(self.shape):
             pygame.draw.rect(
                 self.screen, (75 * i, 150, 150),
                 (self.tetris.col_w * square[0], self.tetris.row_h * square[1],
@@ -107,20 +91,19 @@ class Tetramino:
     def debug(self):
         print("--------------------")
 
-    def rotate(self):
-        self.shape.rotate()
-
     def update(self):
-        for shape in self.shape.shape:
-            if not self.tetris.valid_position(shape[0], shape[1] + 1):
-                return False
+        for shape in self.shape:
+            return False
 
-        self.shape.shape = [[x[0], x[1] + 1] for x in self.shape.shape]
+        self.shape = [[x[0], x[1] + 1] for x in self.shape]
         return True
 
     def move(self, x=0, y=0):
-        self.shape.shape = [[rect[0] + x, rect[1] + y]
-                            for rect in self.shape.shape]
+        for shape in self.shape:
+            if not self.tetris.valid_position(shape[0], shape[1] + 1):
+                return False
+
+        self.shape = [[rect[0] + x, rect[1] + y] for rect in self.shape]
 
 
 class Tetris:
@@ -128,20 +111,57 @@ class Tetris:
     ROWS = 20
 
     def __init__(self, screen):
+        """Construct a Tetris board object
+
+        Args:
+            screen (Pygame.Screen): Surface to draw on
+        """
         self.screen = screen
         self.w, self.h = screen.get_size()
         self.col_w = self.w / self.COLS
         self.row_h = self.h / self.ROWS
         self.current_tetramino = None
-        self.tetraminos = [Tetramino(TetraminoShape.LINE, screen, self)]
+        self.tetraminos = [Tetramino(Tetramino.LINE, screen, self)]
         self.curr_tetramino = self.tetraminos[-1]
 
-    def valid_position(self, x, y):
-        if x < 0 or x >= Tetris.COLS or y >= Tetris.ROWS:
+    def valid_horizontal(self, x):
+        """Check if a position is valid on the screen (not too far left
+        or right)
+
+        Args:
+            x (int): x position on the board
+
+        Returns:
+            bool: If that x position is valid
+        """
+        if x < 0 or x >= Tetris.COLS:
             return False
         return True
 
+    def is_bottom(self, x, y):
+        """Check if a position is either at the
+        bottom of the screen or on top of a tetramino that has already
+        fallen
+
+        Args:
+            x (int): X position on the grid
+            y (int): Y position on the grid
+
+        Returns:
+            bool: If the X Y position is the bottom
+        """
+        if y <= Tetris.ROWS:
+            return True
+        for tetramino in self.tetraminos:
+            if tetramino != self.curr_tetramino:
+                for shape in tetramino.shape.shape:
+                    if shape[0] == x and shape[1] == y:
+                        return True
+        return False
+
     def draw(self):
+        """Draw all of the tetraminos and the grid
+        """
         for tetramino in self.tetraminos:
             tetramino.draw()
 
@@ -156,41 +176,74 @@ class Tetris:
                                       (self.w, self.row_h * i), 5])
 
     def update(self):
+        """Update the current tetraminos position and check if there
+        is a filled line that needs to go away
+        """
         if not self.curr_tetramino.update():
             self.tetraminos.append(
-                Tetramino(TetraminoShape.LINE, screen, self))
+                Tetramino(Tetramino.LINE, self.screen, self))
             self.curr_tetramino = self.tetraminos[-1]
 
 
-pygame.init()
-screen = pygame.display.set_mode((80 * 10, 80 * 20))
-TETRIS_DROP = USEREVENT + 1
-pygame.time.set_timer(TETRIS_DROP, 250)
+def main():
+    """Main game loop and initialization
+    """
 
-done = False
-tetris = Tetris(screen)
+    # Initialize the game and local variables
+    pygame.init()
+    screen = pygame.display.set_mode((80 * 10, 80 * 20))
+    TETRIS_DROP = USEREVENT + 1
+    done = False
+    tetris = Tetris(screen)
 
-while not done:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True
+    # Set the timer going for forced drop
+    pygame.time.set_timer(TETRIS_DROP, 400)
 
-        elif event.type == TETRIS_DROP:
-            tetris.update()
+    # Infinite loop while the game is running
+    while not done:
+        # Get the events that have happened since last loop
+        for event in pygame.event.get():
+            # If the exit button was pressed then end the loop
+            if event.type == pygame.QUIT:
+                done = True
 
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_DOWN:
-                tetris.curr_tetramino.move(y=1)
-            if event.key == pygame.K_LEFT:
-                tetris.curr_tetramino.move(x=-1)
-            if event.key == pygame.K_RIGHT:
-                tetris.curr_tetramino.move(x=1)
-            if event.key == pygame.K_UP:
-                tetris.curr_tetramino.rotate()
-            if event.key == pygame.K_d:
-                tetris.curr_tetramino.debug()
+            # If the tetris drop timer fired update the game
+            elif event.type == TETRIS_DROP:
+                tetris.update()
 
-    screen.fill((0, 0, 0))
-    tetris.draw()
+            # If the event was a keydown check the keys we care about
+            elif event.type == pygame.KEYDOWN:
+                # Pressing the down arrow should move the tetramino down
+                # TODO: Make this go down while held
+                if event.key == pygame.K_DOWN:
+                    tetris.curr_tetramino.move(y=1)
 
-    pygame.display.flip()
+                # Pressing the left key should move the tetramino left
+                if event.key == pygame.K_LEFT:
+                    tetris.curr_tetramino.move(x=-1)
+
+                # Pressing the right key should move the tetramino right
+                if event.key == pygame.K_RIGHT:
+                    tetris.curr_tetramino.move(x=1)
+
+                # Pressing the up key should rotate the tetramino
+                if event.key == pygame.K_UP:
+                    tetris.curr_tetramino.rotate()
+
+                # Call the debug function on the current falling tetramino
+                # If the d button is pressed
+                if event.key == pygame.K_d:
+                    tetris.curr_tetramino.debug()
+
+        # Refresh the screen
+        screen.fill((0, 0, 0))
+        # Draw the new board
+        tetris.draw()
+
+        # Flip the buffer
+        pygame.display.flip()
+
+
+# Run the main game loop
+if __name__ == '__main__':
+    main()
