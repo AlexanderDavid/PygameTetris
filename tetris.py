@@ -2,6 +2,7 @@ import pygame  # Game library to draw onto the window
 from pygame.locals import USEREVENT  # Import some local pygame variables
 from random import randrange  # For a little randomness in the tetrominos
 import sys  # For exiting the program
+TETRIS_DROP = USEREVENT + 1
 
 
 class Tetramino:
@@ -125,6 +126,9 @@ class Tetris:
         self.current_tetramino = None
         self.tetraminos = [Tetramino(Tetramino.LINE, screen, self)]
         self.curr_tetramino = self.tetraminos[-1]
+        self.game_speed = 1
+        self.board = [[None for _ in range(self.COLS)]
+                      for _ in range(self.ROWS)]
 
     def is_occupied_position(self, x, y):
         if not self.is_valid_position(x, y):
@@ -175,17 +179,48 @@ class Tetris:
         """Update the current tetraminos position and check if there
         is a filled line that needs to go away
         """
+
         if self.curr_tetramino.update():
+            updateBoard = False
+            for block in self.curr_tetramino.shape:
+                self.board[block[1]][block[0]] = self.curr_tetramino
+
+            for row in self.board[::-1]:
+                if row.count(None) == 0:
+                    updateBoard = True
+                    for tetramino in row:
+                        for block in tetramino.shape:
+                            if block[1] == self.board.index(row):
+                                tetramino.shape.remove(block)
+
+                    for tetramino in self.tetraminos:
+                        tetramino.shape = [[
+                            x[0],
+                            x[1] + (1 if x[1] <= self.board.index(row) else 0)
+                        ] for x in tetramino.shape]
+
             self.tetraminos.append(
                 Tetramino(Tetramino.LINE, self.screen, self))
             self.curr_tetramino = self.tetraminos[-1]
 
+            if updateBoard:
+                self.board = [[None for _ in range(self.COLS)]
+                              for _ in range(self.ROWS)]
+                for tetramino in self.tetraminos:
+                    for block in tetramino.shape:
+                        self.board[block[1]][block[0]] = tetramino
+
         self.curr_tetramino.move(y=1)
 
     def key_down(self, key):
+        """ 'Callback' from PyGame every time a key is depressed
+
+        Args:
+            key (int): Keycode
+        """
         # Pressing the down key should move the tetramino down
         if key == pygame.K_DOWN:
-            self.curr_tetramino.move(y=1)
+            self.game_speed = 1
 
         # Pressing the left key should move the tetramino left
         elif key == pygame.K_LEFT:
@@ -204,6 +239,18 @@ class Tetris:
         elif key == pygame.K_d:
             self.curr_tetramino.debug()
 
+        elif key == pygame.K_ESCAPE:
+            self.game_speed = 4 if self.game_speed == 0 else 0
+
+    def key_up(self, key):
+        """ 'Callback' from PyGame every time a key is un-depressed
+
+        Args:
+            key (int): Keycode
+        """
+        if key == pygame.K_DOWN:
+            self.game_speed = 4
+
 
 def main():
     """Main game loop and initialization
@@ -212,7 +259,6 @@ def main():
     # Initialize the game and local variables
     pygame.init()
     screen = pygame.display.set_mode((80 * 10, 80 * 20))
-    TETRIS_DROP = USEREVENT + 1
     done = False
     tetris = Tetris(screen)
 
@@ -234,6 +280,16 @@ def main():
             # If the event was a keydown send the key to the tetris object
             elif event.type == pygame.KEYDOWN:
                 tetris.key_down(event.key)
+
+                # Modify the timer if applicable
+                pygame.time.set_timer(TETRIS_DROP, 100 * tetris.game_speed)
+
+            # If the event was a keyup send the key to the tetris object
+            elif event.type == pygame.KEYUP:
+                tetris.key_up(event.key)
+
+                # Modify the timer fi applicable
+                pygame.time.set_timer(TETRIS_DROP, 100 * tetris.game_speed)
 
         # Refresh the screen
         screen.fill((0, 0, 0))
