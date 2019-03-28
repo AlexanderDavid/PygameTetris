@@ -1,7 +1,6 @@
 import pygame  # Game library to draw onto the window
 from pygame.locals import USEREVENT  # Import some local pygame variables
-from random import randrange  # For a little randomness in the tetrominos
-import sys  # For exiting the program
+from random import randrange, choice  # For a little randomness in the tetrominos
 TETRIS_DROP = USEREVENT + 1
 
 
@@ -11,14 +10,36 @@ class Tetramino:
     LINE = "LINE"
     T = "T"
     L = "L"
+    J = "J"
+    S = "S"
+    Z = "Z"
     BLOCK = "BLOCK"
+
+    CHOICES = [LINE, T, S, Z, L, J, BLOCK]
 
     # Static dictionary that contains the tetramino shapes and colors
     SHAPES = {
-        "LINE": ([[0, -1], [0, -2], [0, -3], [0, -4]], (255, 0, 0)),
-        "T": ([[0, -1], [1, -1], [2, -1], [1, -2]], (0, 255, 0)),
-        "L": ([[0, -1], [0, -2], [0, -3], [1, -1]], (255, 0, 0)),
-        "BLOCK": ([[0, -1], [0, -2], [-1, -1], [-1, -2], (255, 255, 0)])
+        "LINE": ([[0, -1], [0, -2], [0, -3], [0, -4]],
+                 pygame.transform.scale(
+                     pygame.image.load("assets/tetris_teal.png"), (80, 80))),
+        "T": ([[0, -1], [1, -1], [2, -1], [1, -2]],
+              pygame.transform.scale(
+                  pygame.image.load("assets/tetris_purple.png"), (80, 80))),
+        "L": ([[0, -1], [0, -2], [0, -3], [1, -1]],
+              pygame.transform.scale(
+                  pygame.image.load("assets/tetris_blue.png"), (80, 80))),
+        "J": ([[1, -1], [1, -2], [1, -3], [0, -1]],
+              pygame.transform.scale(
+                  pygame.image.load("assets/tetris_orange.png"), (80, 80))),
+        "S": ([[0, -1], [1, -1], [1, -2], [-2, -2]],
+              pygame.transform.scale(
+                  pygame.image.load("assets/tetris_green.png"), (80, 80))),
+        "Z": ([[0, -2], [1, -2], [1, -1], [-2, -1]],
+              pygame.transform.scale(
+                  pygame.image.load("assets/tetris_red.png"), (80, 80))),
+        "BLOCK": ([[0, -1], [0, -2], [-1, -1], [-1, -2]],
+                  pygame.transform.scale(
+                      pygame.image.load("assets/tetris_yellow.png"), (80, 80)))
     }
 
     def __init__(self, shape, screen, tetris):
@@ -34,7 +55,7 @@ class Tetramino:
         self.screen = screen
         self.shape_keyword = shape
         self.shape = self.SHAPES[shape][0]
-        self.color = self.SHAPES[shape][1]
+        self.image = self.SHAPES[shape][1]
         self.randomize_horizontal_position()
         self.tetris = tetris
         self.rotated = 1
@@ -90,6 +111,10 @@ class Tetramino:
                 (self.tetris.col_w * square[0], self.tetris.row_h * square[1],
                  self.tetris.col_w, self.tetris.row_h))
 
+            self.screen.blit(
+                self.image,
+                (self.tetris.col_w * square[0], self.tetris.row_h * square[1]))
+
     def debug(self):
         print("--------------------")
 
@@ -124,7 +149,7 @@ class Tetris:
         self.col_w = self.w / self.COLS
         self.row_h = self.h / self.ROWS
         self.current_tetramino = None
-        self.tetraminos = [Tetramino(Tetramino.LINE, screen, self)]
+        self.tetraminos = [Tetramino(choice(Tetramino.CHOICES), screen, self)]
         self.curr_tetramino = self.tetraminos[-1]
         self.game_speed = 1
         self.board = [[None for _ in range(self.COLS)]
@@ -165,15 +190,15 @@ class Tetris:
         for tetramino in self.tetraminos:
             tetramino.draw()
 
-        for i in range(0, self.COLS + 1):
-            pygame.draw.lines(self.screen, (255, 255, 255),
-                              False, [(self.col_w * i, 0),
-                                      (self.col_w * i, self.h)], 5)
+        # for i in range(0, self.COLS + 1):
+        #     pygame.draw.lines(self.screen, (255, 255, 255),
+        #                       False, [(self.col_w * i, 0),
+        #                               (self.col_w * i, self.h)], 5)
 
-        for i in range(0, self.ROWS + 1):
-            pygame.draw.lines(self.screen, (255, 255, 255),
-                              False, [(0, self.row_h * i),
-                                      (self.w, self.row_h * i), 5])
+        # for i in range(0, self.ROWS + 1):
+        #     pygame.draw.lines(self.screen, (255, 255, 255),
+        #                       False, [(0, self.row_h * i),
+        #                               (self.w, self.row_h * i), 5])
 
     def update(self):
         """Update the current tetraminos position and check if there
@@ -181,35 +206,16 @@ class Tetris:
         """
 
         if self.curr_tetramino.update():
-            updateBoard = False
             for block in self.curr_tetramino.shape:
                 self.board[block[1]][block[0]] = self.curr_tetramino
 
-            for row in self.board[::-1]:
-                if row.count(None) == 0:
-                    updateBoard = True
-                    for tetramino in row:
-                        for block in tetramino.shape:
-                            if block[1] == self.board.index(row):
-                                tetramino.shape.remove(block)
-
-                    for tetramino in self.tetraminos:
-                        tetramino.shape = [[
-                            x[0],
-                            x[1] + (1 if x[1] <= self.board.index(row) else 0)
-                        ] for x in tetramino.shape]
-
             self.tetraminos.append(
-                Tetramino(Tetramino.LINE, self.screen, self))
+                Tetramino(choice(Tetramino.CHOICES), self.screen, self))
             self.curr_tetramino = self.tetraminos[-1]
 
-            if updateBoard:
-                self.board = [[None for _ in range(self.COLS)]
-                              for _ in range(self.ROWS)]
-                for tetramino in self.tetraminos:
-                    for block in tetramino.shape:
-                        self.board[block[1]][block[0]] = tetramino
-
+            for row in self.board:
+                print([(1 if x is not None else 0) for x in row])
+            print("------")
         self.curr_tetramino.move(y=1)
 
     def key_down(self, key):
